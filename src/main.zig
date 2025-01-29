@@ -5,11 +5,21 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
+    var file = try std.fs.cwd().openFile("file.asm", .{});
+    defer file.close();
+
+    const file_len = try file.stat();
+    const file_data = try allocator.alloc(u8, file_len.size);
+    defer allocator.free(file_data);
+
+    _ = try file.readAll(file_data);
+    // std.debug.print("File contents: {s}\n", .{file_data});
+
     var operations_hash = std.StringHashMap(Operation).init(allocator);
     defer operations_hash.deinit();
     try operations_hash.put("ADD", Operation.Add);
 
-    const file_data = "ADD R0, R0, 1";
+    // const file_data = "ADD R0, R0, 1";
 
     const instructions = try parseString(file_data, operations_hash, allocator);
     defer instructions.deinit();
@@ -37,10 +47,15 @@ fn parseString(source: []const u8, operations_hash: std.StringHashMap(Operation)
     var current: u32 = 0;
     while (current < source.len) {
         var operation_index = current;
-        while (source[operation_index] != ' ') : (operation_index += 1) {}
+        while (operation_index < source.len and source[operation_index] != ' ') : (operation_index += 1) {}
+        if (operation_index >= source.len) {
+            return instructions;
+        }
 
-        std.debug.print("{d}\n", .{operation_index});
-        std.debug.print("{s}\n", .{source[current..operation_index]});
+        // std.debug.print("{d}\n", .{operation_index});
+        // std.debug.print("{d}\n", .{source.len});
+        // std.debug.print("{s}\n", .{source[current..operation_index]});
+
         const operation = operations_hash.get(source[current..operation_index]).?;
         var instruction = Instruction.new(operation);
         current = operation_index + 1; // current is on first R
@@ -65,8 +80,6 @@ fn parseString(source: []const u8, operations_hash: std.StringHashMap(Operation)
         while (current < source.len and source[current] != '\n') : (current += 1) {}
         current += 1;
     }
-    // this won't work on instructions that are not 3 characters, but we can fix that later
-
     return instructions;
 }
 
