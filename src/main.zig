@@ -1,4 +1,5 @@
 const std = @import("std");
+const ArrayList = std.ArrayList;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -8,13 +9,12 @@ pub fn main() !void {
     defer operations_hash.deinit();
     try operations_hash.put("ADD", Operation.Add);
 
-    const file_data = "ADD R0, R0, R3";
+    const file_data = "ADD R0, R0, 1\n ADD R0, R0, 2";
 
     const instructions = try parseString(file_data, operations_hash, allocator);
     defer instructions.deinit();
 
     var registers = std.mem.zeroes([7]i16);
-    registers[3] = 7;
 
     std.debug.print("R0: {d}\n", .{registers[0]});
     for (instructions.items) |inst| {
@@ -31,26 +31,37 @@ pub fn main() !void {
     std.debug.print("R0: {d}\n", .{registers[0]});
 }
 
-fn parseString(source: []const u8, operations_hash: std.StringHashMap(Operation), allocator: std.mem.Allocator) !std.ArrayList(Instruction) {
-    var instructions = std.ArrayList(Instruction).init(allocator);
+fn parseString(source: []const u8, operations_hash: std.StringHashMap(Operation), allocator: std.mem.Allocator) !ArrayList(Instruction) {
+    var instructions = ArrayList(Instruction).init(allocator);
 
-    // this won't work on instructions that are not 3 characters, but we can fix that later
-    const operation = operations_hash.get(source[0..3]).?;
-    var instruction = Instruction.new(operation);
+    var current: u32 = 0;
+    while (current < source.len) {
+        var opString = ArrayList(u8).init(allocator);
+        // const start = current;
 
-    switch (operation) {
-        Operation.Add => {
-            instruction.first_3 = @intCast(source[5] - 48);
-            instruction.second_3 = @intCast(source[9] - 48);
-            if (source[12] == 'R') {
-                instruction.rest = Rest{ .third_reg = @intCast(source[13] - 48) };
-            } else {
-                instruction.rest = Rest{ .immediate = @intCast(source[12] - 48) };
-            }
-        },
+        while (source[current] != ' ') : (current += 1) {
+            try opString.append(source[current]);
+            // opString[current - start] = source[current];
+        }
+
+        const operation = operations_hash.get(source[0..3]).?;
+        var instruction = Instruction.new(operation);
+
+        switch (operation) {
+            Operation.Add => {
+                instruction.first_3 = @intCast(source[5] - 48);
+                instruction.second_3 = @intCast(source[9] - 48);
+                if (source[12] == 'R') {
+                    instruction.rest = Rest{ .third_reg = @intCast(source[13] - 48) };
+                } else {
+                    instruction.rest = Rest{ .immediate = @intCast(source[12] - 48) };
+                }
+            },
+        }
+        try instructions.append(instruction);
     }
+    // this won't work on instructions that are not 3 characters, but we can fix that later
 
-    try instructions.append(instruction);
     return instructions;
 }
 
