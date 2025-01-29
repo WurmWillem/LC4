@@ -1,48 +1,23 @@
 const std = @import("std");
 
 pub fn main() !void {
-    // const opcodes = std.ArrayHashMap([]const u8, Operation, bool, 1).init();
-    // opcodes.put("ADD", Operation.Add);
-    //
-    // rework this
-    // var buffer: [1000]u8 = undefined;
-    const allocator = std.heap.page_allocator;
-    // var fba = std.heap.FixedBufferAllocator.init(&buffer);
-    // const allocator = fba.allocator();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
 
-    var map = std.StringHashMap(Operation).init(
-        allocator,
-    );
-    defer map.deinit();
-
-    try map.put("ADD", Operation.Add);
+    var operations_hash = std.StringHashMap(Operation).init(allocator);
+    defer operations_hash.deinit();
+    try operations_hash.put("ADD", Operation.Add);
 
     const file_data = "ADD R0, R0, R3";
 
-    // this won't work on instructions that are not 3 characters, but we can fix that later
-    const operation = map.get(file_data[0..3]).?;
-    var instruction = Instruction.new(operation);
-
-    switch (operation) {
-        Operation.Add => {
-            instruction.first_3 = file_data[5] - 48;
-            instruction.second_3 = file_data[9] - 48;
-            if (file_data[12] == 'R') {
-                instruction.rest = Rest{ .third_reg = file_data[13] - 48 };
-            } else {
-                instruction.rest = Rest{ .immediate = file_data[12] - 48 };
-            }
-        },
-    }
-
-    var instructions: [1]Instruction = undefined;
-    instructions[0] = instruction;
+    const instructions = try parseString(file_data, operations_hash, allocator);
+    defer instructions.deinit();
 
     var registers = std.mem.zeroes([7]i16);
     registers[3] = 7;
 
     std.debug.print("R0: {d}\n", .{registers[0]});
-    for (instructions) |inst| {
+    for (instructions.items) |inst| {
         switch (inst.operation) {
             Operation.Add => {
                 switch (inst.rest) {
@@ -54,6 +29,29 @@ pub fn main() !void {
     }
 
     std.debug.print("R0: {d}\n", .{registers[0]});
+}
+
+fn parseString(source: []const u8, operations_hash: std.StringHashMap(Operation), allocator: std.mem.Allocator) !std.ArrayList(Instruction) {
+    var instructions = std.ArrayList(Instruction).init(allocator);
+
+    // this won't work on instructions that are not 3 characters, but we can fix that later
+    const operation = operations_hash.get(source[0..3]).?;
+    var instruction = Instruction.new(operation);
+
+    switch (operation) {
+        Operation.Add => {
+            instruction.first_3 = @intCast(source[5] - 48);
+            instruction.second_3 = @intCast(source[9] - 48);
+            if (source[12] == 'R') {
+                instruction.rest = Rest{ .third_reg = @intCast(source[13] - 48) };
+            } else {
+                instruction.rest = Rest{ .immediate = @intCast(source[12] - 48) };
+            }
+        },
+    }
+
+    try instructions.append(instruction);
+    return instructions;
 }
 
 const Operation = enum { Add };
