@@ -18,15 +18,18 @@ pub fn main() !void {
     var operations_hash = std.StringHashMap(Operation).init(allocator);
     defer operations_hash.deinit();
     try operations_hash.put("ADD", Operation.Add);
+    try operations_hash.put("NOT", Operation.Not);
 
     // const file_data = "ADD R0, R0, 1";
 
     const instructions = try parseString(file_data, operations_hash, allocator);
     defer instructions.deinit();
 
-    var registers = std.mem.zeroes([7]i16);
+    var registers = std.mem.zeroes([8]i16);
+    registers[0] = 10;
+    registers[1] = 8;
 
-    std.debug.print("R0: {d}\n", .{registers[0]});
+    // std.debug.print("R0: {d}\n", .{registers[0]});
     for (instructions.items) |inst| {
         switch (inst.operation) {
             Operation.Add => {
@@ -35,10 +38,17 @@ pub fn main() !void {
                     .immediate => |immediate| registers[inst.first_3] = registers[inst.second_3] + immediate,
                 }
             },
+            Operation.Not => {
+                registers[inst.first_3] = -registers[inst.second_3] - 0;
+            },
         }
     }
 
-    std.debug.print("R0: {d}\n", .{registers[0]});
+    var i: u4 = 0;
+    for (registers) |reg| {
+        std.debug.print("R{d}: {d}\n", .{ i, reg });
+        i = i + 1;
+    }
 }
 
 fn parseString(source: []const u8, operations_hash: std.StringHashMap(Operation), allocator: std.mem.Allocator) !ArrayList(Instruction) {
@@ -70,9 +80,10 @@ fn parseString(source: []const u8, operations_hash: std.StringHashMap(Operation)
                 if (source[current] == 'R') {
                     instruction.rest = Rest{ .third_reg = @intCast(source[current + 1] - 48) };
                 } else {
-                    instruction.rest = Rest{ .immediate = @intCast(source[current] - 48) };
+                    instruction.rest = Rest{ .immediate = @intCast(source[current + 1] - 48) };
                 }
             },
+            Operation.Not => {},
         }
         try instructions.append(instruction);
 
@@ -83,7 +94,7 @@ fn parseString(source: []const u8, operations_hash: std.StringHashMap(Operation)
     return instructions;
 }
 
-const Operation = enum { Add };
+const Operation = enum { Add, Not };
 const MemoryMember = union {
     operation: Operation,
     value: i16,
