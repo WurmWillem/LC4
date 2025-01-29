@@ -17,32 +17,29 @@ pub fn main() !void {
 
     try map.put("ADD", Operation.Add);
 
-    const file_data = "ADD R0, R0, 3";
+    const file_data = "ADD R0, R0, R3";
 
+    // this won't work on instructions that are not 3 characters, but we can fix that later
     const operation = map.get(file_data[0..3]).?;
-    var first_3: u3 = 0;
-    var second_3: u3 = 0;
-    var rest = Rest{ .immediate = 0 }; // will be changed later
+    var instruction = Instruction.new(operation);
 
     switch (operation) {
         Operation.Add => {
-            first_3 = file_data[5] - 48;
-            second_3 = file_data[9] - 48;
-            rest = Rest{ .immediate = file_data[12] - 48 };
+            instruction.first_3 = file_data[5] - 48;
+            instruction.second_3 = file_data[9] - 48;
+            if (file_data[12] == 'R') {
+                instruction.rest = Rest{ .third_reg = file_data[13] - 48 };
+            } else {
+                instruction.rest = Rest{ .immediate = file_data[12] - 48 };
+            }
         },
     }
-    const instruction = Instruction{
-        .operation = operation,
-        .first_3 = first_3,
-        .second_3 = second_3,
-        .rest = rest,
-    };
 
     var instructions: [1]Instruction = undefined;
     instructions[0] = instruction;
 
-    // var registers: [7]i16 = [_]i16{0};
     var registers = std.mem.zeroes([7]i16);
+    registers[3] = 7;
 
     std.debug.print("R0: {d}\n", .{registers[0]});
     for (instructions) |inst| {
@@ -65,7 +62,21 @@ const MemoryMember = union {
     value: i16,
 };
 
-const Instruction = struct { operation: Operation, first_3: u3, second_3: u3, rest: Rest };
+const Instruction = struct {
+    operation: Operation,
+    first_3: u3,
+    second_3: u3,
+    rest: Rest,
+
+    pub fn new(operation: Operation) Instruction {
+        return Instruction{
+            .operation = operation,
+            .first_3 = 0,
+            .second_3 = 0,
+            .rest = Rest{ .immediate = 0 },
+        };
+    }
+};
 
 const Rest = union(enum) {
     third_reg: u3,
