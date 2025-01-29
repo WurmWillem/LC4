@@ -9,7 +9,7 @@ pub fn main() !void {
     defer operations_hash.deinit();
     try operations_hash.put("ADD", Operation.Add);
 
-    const file_data = "ADD R0, R0, 1\n ADD R0, R0, 2";
+    const file_data = "ADD R0, R0, 1";
 
     const instructions = try parseString(file_data, operations_hash, allocator);
     defer instructions.deinit();
@@ -36,29 +36,34 @@ fn parseString(source: []const u8, operations_hash: std.StringHashMap(Operation)
 
     var current: u32 = 0;
     while (current < source.len) {
-        var opString = ArrayList(u8).init(allocator);
-        // const start = current;
+        var operation_index = current;
+        while (source[operation_index] != ' ') : (operation_index += 1) {}
 
-        while (source[current] != ' ') : (current += 1) {
-            try opString.append(source[current]);
-            // opString[current - start] = source[current];
-        }
-
-        const operation = operations_hash.get(source[0..3]).?;
+        std.debug.print("{d}\n", .{operation_index});
+        std.debug.print("{s}\n", .{source[current..operation_index]});
+        const operation = operations_hash.get(source[current..operation_index]).?;
         var instruction = Instruction.new(operation);
+        current = operation_index + 1; // current is on first R
 
-        switch (operation) {
+        instruction.first_3 = @intCast(source[current + 1] - 48);
+        current += 4; // current is on second R
+        instruction.second_3 = @intCast(source[current + 1] - 48);
+        current += 4; // current is on third argument
+
+        switch (instruction.operation) {
             Operation.Add => {
-                instruction.first_3 = @intCast(source[5] - 48);
-                instruction.second_3 = @intCast(source[9] - 48);
-                if (source[12] == 'R') {
-                    instruction.rest = Rest{ .third_reg = @intCast(source[13] - 48) };
+                if (source[current] == 'R') {
+                    instruction.rest = Rest{ .third_reg = @intCast(source[current + 1] - 48) };
                 } else {
-                    instruction.rest = Rest{ .immediate = @intCast(source[12] - 48) };
+                    instruction.rest = Rest{ .immediate = @intCast(source[current] - 48) };
                 }
             },
         }
         try instructions.append(instruction);
+
+        // make current go to start of next line
+        while (current < source.len and source[current] != '\n') : (current += 1) {}
+        current += 1;
     }
     // this won't work on instructions that are not 3 characters, but we can fix that later
 
