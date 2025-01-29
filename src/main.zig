@@ -19,18 +19,31 @@ pub fn main() !void {
     defer operations_hash.deinit();
     try operations_hash.put("ADD", Operation.Add);
     try operations_hash.put("NOT", Operation.Not);
+    try operations_hash.put("AND", Operation.And);
 
-    // const file_data = "ADD R0, R0, 1";
+    // const file_data = "ADD R0, R0, #1";
 
     const instructions = try parseString(file_data, operations_hash, allocator);
     defer instructions.deinit();
 
     var registers = std.mem.zeroes([8]i16);
-    registers[0] = 10;
+    registers[0] = 5;
     registers[1] = 8;
 
+    var i: u4 = 0;
+    for (registers) |reg| {
+        if (reg != 0) {
+            std.debug.print("R{d}: {d}\n", .{ i, reg });
+        }
+        i = i + 1;
+    }
+    std.debug.print("\n", .{});
+
+    // std.debug.print("{d} {d}\n", .{ registers[0], ~registers[0] });
     // std.debug.print("R0: {d}\n", .{registers[0]});
+
     for (instructions.items) |inst| {
+        std.debug.print("{d} {d}\n", .{ inst.first_3, inst.second_3 });
         switch (inst.operation) {
             Operation.Add => {
                 switch (inst.rest) {
@@ -39,14 +52,19 @@ pub fn main() !void {
                 }
             },
             Operation.Not => {
-                registers[inst.first_3] = -registers[inst.second_3] - 0;
+                registers[inst.first_3] = ~registers[inst.second_3];
+            },
+            Operation.And => {
+                registers[inst.first_3] = -registers[inst.second_3];
             },
         }
     }
 
-    var i: u4 = 0;
+    i = 0;
     for (registers) |reg| {
-        std.debug.print("R{d}: {d}\n", .{ i, reg });
+        if (reg != 0) {
+            std.debug.print("R{d}: {d}\n", .{ i, reg });
+        }
         i = i + 1;
     }
 }
@@ -59,7 +77,7 @@ fn parseString(source: []const u8, operations_hash: std.StringHashMap(Operation)
         var operation_index = current;
         while (operation_index < source.len and source[operation_index] != ' ') : (operation_index += 1) {}
         if (operation_index >= source.len) {
-            return instructions;
+            // return instructions;
         }
 
         // std.debug.print("{d}\n", .{operation_index});
@@ -73,15 +91,18 @@ fn parseString(source: []const u8, operations_hash: std.StringHashMap(Operation)
         instruction.first_3 = @intCast(source[current + 1] - 48);
         current += 4; // current is on second R
         instruction.second_3 = @intCast(source[current + 1] - 48);
-        current += 4; // current is on third argument
 
         switch (instruction.operation) {
             Operation.Add => {
                 if (source[current] == 'R') {
-                    instruction.rest = Rest{ .third_reg = @intCast(source[current + 1] - 48) };
+                    instruction.rest = Rest{ .third_reg = @intCast(source[current + 5] - 48) };
                 } else {
-                    instruction.rest = Rest{ .immediate = @intCast(source[current + 1] - 48) };
+                    instruction.rest = Rest{ .immediate = @intCast(source[current + 5] - 48) };
                 }
+                // std.debug.print("{c}\n", .{source[current + 5]});
+            },
+            Operation.And => {
+                instruction.rest = Rest{ .immediate = @intCast(source[current + 1] - 48) };
             },
             Operation.Not => {},
         }
@@ -94,7 +115,7 @@ fn parseString(source: []const u8, operations_hash: std.StringHashMap(Operation)
     return instructions;
 }
 
-const Operation = enum { Add, Not };
+const Operation = enum { Add, And, Not };
 const MemoryMember = union {
     operation: Operation,
     value: i16,
