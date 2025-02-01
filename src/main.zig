@@ -30,12 +30,10 @@ pub fn main() !void {
     registers[0] = 5;
     registers[1] = 12;
 
-    var i: u4 = 0;
-    for (registers) |reg| {
+    for (0.., registers) |i, reg| {
         if (reg != 0) {
             std.debug.print("R{d}: {d}\n", .{ i, reg });
         }
-        i = i + 1;
     }
     std.debug.print("\n", .{});
 
@@ -60,12 +58,10 @@ pub fn main() !void {
         }
     }
 
-    i = 0;
-    for (registers) |reg| {
+    for (0.., registers) |i, reg| {
         if (reg != 0) {
             std.debug.print("R{d}: {d}\n", .{ i, reg });
         }
-        i = i + 1;
     }
 }
 
@@ -88,20 +84,20 @@ fn parseString(source: []const u8, operations_hash: std.StringHashMap(Operation)
         var instruction = Instruction.new(operation);
         current = operation_index + 1; // current is on first R
 
-        instruction.first_3 = @intCast(source[current + 1] - 48);
+        instruction.first_3 = @intCast(source[current + 1] - '0');
         current += 4; // current is on second R
-        instruction.second_3 = @intCast(source[current + 1] - 48);
+        instruction.second_3 = @intCast(source[current + 1] - '0');
 
         switch (instruction.operation) {
             Operation.Add => {
                 if (source[current + 4] == 'R') {
-                    instruction.rest = Rest{ .third_reg = @intCast(source[current + 5] - 48) };
+                    instruction.rest = Rest{ .third_reg = @intCast(source[current + 5] - '0') };
                 } else {
-                    instruction.rest = Rest{ .immediate = @intCast(source[current + 5] - 48) };
+                    instruction.rest = Rest{ .immediate = @intCast(source[current + 5] - '0') };
                 }
             },
             Operation.And => {
-                instruction.rest = Rest{ .immediate = @intCast(source[current + 5] - 48) };
+                instruction.rest = Rest{ .immediate = @intCast(source[current + 5] - '0') };
             },
             Operation.Not => {},
         }
